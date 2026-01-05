@@ -54,7 +54,7 @@ jobs:
                           target_repo: context.repo.owner + '/' + context.repo.repo,
                           base_branch: 'main',
                           custom_instructions: 'Fix the Playwright test failure by reverting the breaking change in getDisplayName.ts',
-                          custom_agent: '.github/agents/test-fixer.md',
+                          custom_agent: 'test-fixer',
                           model: ''
                         }
                       });

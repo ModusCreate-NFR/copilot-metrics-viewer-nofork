@@ -319,67 +319,24 @@ jobs:
 
                       console.log(`Created issue #${issue.data.number}`);
 
-                      // Get Copilot's node ID using GraphQL
+                      // Assign Copilot bot using REST API with custom agent
                       try {
-                        const copilotQuery = `
-                          query($owner: String!, $name: String!) {
-                            repository(owner: $owner, name: $name) {
-                              suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
-                                nodes {
-                                  login
-                                  __typename
-                                  ... on Bot { id }
-                                }
-                              }
-                            }
-                          }
-                        `;
-                        
-                        const copilotResponse = await github.graphql(copilotQuery, {
+                        await github.rest.issues.addAssignees({
                           owner: context.repo.owner,
-                          name: context.repo.repo
+                          repo: context.repo.repo,
+                          issue_number: issue.data.number,
+                          assignees: ['copilot-swe-agent[bot]'],
+                          agent_assignment: {
+                            target_repo: `${context.repo.owner}/${context.repo.repo}`,
+                            base_branch: 'main',
+                            custom_instructions: `Fix the Playwright test failure. Check the investigation results in issue #${issue.data.number} for context.`,
+                            custom_agent: 'test-fixer',
+                            model: ''
+                          }
                         });
                         
-                        // Log all available bots for debugging
-                        const bots = copilotResponse.repository.suggestedActors.nodes.filter(n => n.__typename === 'Bot');
-                        console.log(`Available bots: ${bots.map(b => b.login).join(', ')}`);
-                        
-                        // Try to find any copilot-related bot
-                        const copilotNode = copilotResponse.repository.suggestedActors.nodes.find(
-                          n => n.login && (n.login.includes('copilot') || n.login === 'copilot')
-                        );
-                        
-                        if (copilotNode && copilotNode.id) {
-                          console.log(`Found Copilot bot: ${copilotNode.login}`);
-                          
-                          // Assign using GraphQL mutation
-                          const assignMutation = `
-                            mutation($issueId: ID!, $assigneeIds: [ID!]!) {
-                              addAssigneesToAssignable(input: {assignableId: $issueId, assigneeIds: $assigneeIds}) {
-                                assignable {
-                                  ... on Issue {
-                                    number
-                                    assignees(first: 10) {
-                                      nodes {
-                                        login
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          `;
-                          
-                          await github.graphql(assignMutation, {
-                            issueId: issue.data.node_id,
-                            assigneeIds: [copilotNode.id]
-                          });
-                          
-                          console.log(`✅ Assigned issue #${issue.data.number} to ${copilotNode.login} with test-fixer agent`);
-                        } else {
-                          console.log('⚠️  No Copilot bot found in suggestedActors');
-                        }
+                        console.log(`✅ Assigned issue #${issue.data.number} to Copilot bot with test-fixer agent`);
                       } catch (error) {
-                        console.log(`Note: Could not auto-assign to Copilot: ${error.message}`);
+                        console.log(`⚠️ Could not auto-assign to Copilot: ${error.message}`);
                         console.log('Issue can be manually assigned via GitHub UI');
                       }
