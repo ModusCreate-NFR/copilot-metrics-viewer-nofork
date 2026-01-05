@@ -1,0 +1,78 @@
+name: Test Copilot Bot Assignment
+
+on:
+    workflow_dispatch: # Manual trigger for testing
+
+jobs:
+    test-bot-assignment:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: write
+            pull-requests: write
+            repository-projects: write
+
+        steps:
+            - name: Create test issue and assign to Copilot bot
+              uses: actions/github-script@v7
+              env:
+                  # Try using a PAT instead of GITHUB_TOKEN for Copilot bot access
+                  GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN || secrets.GITHUB_TOKEN }}
+              with:
+                  script: |
+                      console.log('🧪 Testing Copilot bot assignment via REST API...');
+
+                      // Step 1: No need to get repository ID or bot ID for REST API!
+                      console.log('✅ Using REST API which accepts "copilot-swe-agent[bot]" directly');
+
+                      // Step 2: Removed (not needed for REST API)
+
+                      // Step 3: Create issue WITH bot assigned using REST API
+                      // REST API works where GraphQL fails!
+                      console.log('\n📝 Step 3: Creating issue with bot assigned (REST API)...');
+
+                      const issue = await github.rest.issues.create({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        title: '🧪 Test Issue for Copilot Bot Assignment (REST API)',
+                        body: [
+                          '## Test Issue',
+                          '',
+                          'This issue was created to test automatic assignment to GitHub Copilot bot via REST API.',
+                          '',
+                          '**Created at**: ' + new Date().toISOString(),
+                          '**Workflow run**: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
+                          '',
+                          '### Test Objectives',
+                          '- ✅ Create issue via REST API',
+                          '- ✅ Assign to copilot-swe-agent[bot]',
+                          '- ✅ Include agent_assignment with custom agent',
+                          '- ✅ Verify bot appears as assignee',
+                          '',
+                          'This issue will be closed automatically after testing.'
+                        ].join('\n'),
+                        assignees: ['copilot-swe-agent[bot]'],
+                        agent_assignment: {
+                          target_repo: context.repo.owner + '/' + context.repo.repo,
+                          base_branch: 'main',
+                          custom_instructions: 'Fix the Playwright test failure by reverting the breaking change in getDisplayName.ts',
+                          custom_agent: '.github/agents/test-fixer.md',
+                          model: ''
+                        }
+                      });
+
+                      console.log(`✅ Created issue #${issue.data.number}`);
+                      console.log(`   URL: ${issue.data.html_url}`);
+                      console.log(`   Assignees: ${issue.data.assignees.map(a => a.login).join(', ')}`);
+
+                      // Step 4: Verify success
+                      const hasCopilot = issue.data.assignees.some(a => a.login === 'Copilot');
+
+                      if (hasCopilot) {
+                        console.log('\n✅ TEST PASSED: Bot successfully assigned during issue creation!');
+                        console.log(`\n🔗 Check issue: ${issue.data.html_url}`);
+                      } else {
+                        console.log('\n❌ TEST FAILED: Bot not in assignees list');
+                        console.log(`   Assignees: ${JSON.stringify(issue.data.assignees)}`);
+                        throw new Error('Copilot bot not assigned');
+                      }

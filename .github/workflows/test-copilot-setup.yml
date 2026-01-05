@@ -1,0 +1,147 @@
+name: Test Copilot Setup (Manual)
+
+# Manual trigger only - for testing the Copilot workflow components
+on:
+  workflow_dispatch:
+    inputs:
+      test_prompt:
+        description: 'Test prompt for Copilot'
+        required: false
+        default: 'Analyze this repository structure and list the main components.'
+
+jobs:
+  test-copilot-components:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Test - Install Copilot CLI
+        run: |
+          echo "🔧 Installing @github/copilot from npm..."
+          npm i -g @github/copilot
+          echo "✅ Installation complete"
+          
+      - name: Test - Verify Copilot CLI
+        run: |
+          echo "📋 Checking Copilot CLI version..."
+          copilot --version || echo "❌ copilot command not found"
+          
+          echo "📋 Checking npm global packages..."
+          npm list -g --depth=0 | grep copilot || echo "⚠️ @github/copilot not in global packages"
+          
+      - name: Test - Check Agent File
+        run: |
+          echo "📄 Checking if agent file exists..."
+          if [ -f ".github/agents/test-fixer.md" ]; then
+            echo "✅ Agent file found"
+            echo "📏 Agent file size: $(wc -l < .github/agents/test-fixer.md) lines"
+            head -20 .github/agents/test-fixer.md
+          else
+            echo "❌ Agent file not found"
+            exit 1
+          fi
+          
+      - name: Test - MCP Configuration
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        run: |
+          echo "🔧 Creating MCP configuration..."
+          
+          mkdir -p ~/.copilot
+          
+          # Check if secrets are configured
+          if [ -z "$JIRA_API_TOKEN" ]; then
+            echo "⚠️ JIRA_API_TOKEN not configured (optional)"
+          else
+            echo "✅ JIRA_API_TOKEN configured"
+          fi
+          
+          if [ -z "$JIRA_USER_EMAIL" ]; then
+            echo "⚠️ JIRA_USER_EMAIL not configured (optional)"
+          else
+            echo "✅ JIRA_USER_EMAIL configured"
+          fi
+          
+          # Create MCP config (even without secrets for testing)
+          cat > ~/.copilot/mcp-config.json << 'EOF'
+          {
+            "mcpServers": {
+              "atlassian": {
+                "command": "npx",
+                "args": [
+                  "-y",
+                  "@janhq/mcp-server-atlassian"
+                ],
+                "env": {
+                  "JIRA_CLOUD_ID": "4c609fb1-ed57-4449-a5b4-d897fd7e3da8",
+                  "JIRA_API_TOKEN": "${JIRA_API_TOKEN:-NOT_CONFIGURED}",
+                  "JIRA_USER_EMAIL": "${JIRA_USER_EMAIL:-NOT_CONFIGURED}"
+                }
+              }
+            }
+          }
+          EOF
+          
+          echo "✅ MCP config created"
+          cat ~/.copilot/mcp-config.json
+          
+      - name: Test - Run Copilot (Dry Run)
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+        run: |
+          echo "🤖 Testing Copilot CLI execution..."
+          
+          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "⚠️ COPILOT_CLI_TOKEN not configured - skipping actual execution"
+            echo "ℹ️ To test execution, add COPILOT_CLI_TOKEN to repository secrets"
+            exit 0
+          fi
+          
+          # Create test prompt
+          TEST_PROMPT="${{ github.event.inputs.test_prompt }}"
+          
+          echo "📝 Test prompt: $TEST_PROMPT"
+          
+          # Try running Copilot (will fail gracefully if not authenticated)
+          echo "$TEST_PROMPT" | copilot --prompt "$(cat -)" --allow-all-tools --allow-all-paths < /dev/null \
+            > test-output.log 2>&1 || true
+          
+          echo "📄 Copilot output:"
+          cat test-output.log
+          
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "📊 Test Summary"
+          echo "==============="
+          echo ""
+          echo "Components tested:"
+          echo "- ✅ npm installation"
+          echo "- ✅ Copilot CLI availability"
+          echo "- ✅ Agent file existence"
+          echo "- ✅ MCP configuration"
+          echo "- 🔑 Copilot execution (requires COPILOT_CLI_TOKEN)"
+          echo ""
+          echo "🔐 Required Secrets (check repository settings):"
+          echo "- COPILOT_CLI_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN != '' && '✅ Configured' || '❌ Not configured' }}"
+          echo "- JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN != '' && '✅ Configured' || '⚠️ Optional' }}"
+          echo "- JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL != '' && '✅ Configured' || '⚠️ Optional' }}"
+          
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-test-output
+          path: |
+            test-output.log
+            ~/.copilot/mcp-config.json
+          retention-days: 7

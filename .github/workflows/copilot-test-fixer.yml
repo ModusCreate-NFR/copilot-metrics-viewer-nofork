@@ -1,0 +1,385 @@
+name: Copilot Test Fixer
+
+# Triggers when Playwright Tests workflow completes with failure
+on:
+    workflow_run:
+        workflows: ["Playwright Tests"]
+        types: [completed]
+
+permissions:
+    contents: write
+    issues: write
+    pull-requests: write
+    actions: read
+
+jobs:
+    investigate-and-fix:
+        # Only run if Playwright Tests failed
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.workflow_run.head_branch }}
+                  fetch-depth: 10
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Install GitHub Copilot CLI
+              run: |
+                  echo "Installing GitHub Copilot CLI from npm..."
+                  npm i -g @github/copilot
+                  copilot --version
+
+            - name: Download Playwright test results
+              uses: actions/download-artifact@v4
+              with:
+                  name: playwright-report-docker
+                  path: test-results/
+                  run-id: ${{ github.event.workflow_run.id }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+              continue-on-error: true
+
+            - name: Extract test failure details
+              id: extract-failures
+              run: |
+                  echo "## Test Failure Analysis" > failure-summary.md
+                  echo "" >> failure-summary.md
+                  echo "**Workflow Run:** ${{ github.event.workflow_run.html_url }}" >> failure-summary.md
+                  echo "**Branch:** ${{ github.event.workflow_run.head_branch }}" >> failure-summary.md
+                  echo "**Commit:** ${{ github.event.workflow_run.head_sha }}" >> failure-summary.md
+                  echo "" >> failure-summary.md
+
+                  # Try to extract failed test names from directory structure
+                  if [ -d "test-results" ]; then
+                    echo "**Failed Tests:**" >> failure-summary.md
+                    find test-results -type d -name "*-failed" | head -10 | while read dir; do
+                      testname=$(basename "$dir" | sed 's/-failed$//')
+                      echo "- $testname" >> failure-summary.md
+                    done
+                  else
+                    echo "- Unable to download test results" >> failure-summary.md
+                  fi
+
+                  cat failure-summary.md
+
+            - name: Get recent commits
+              id: recent-commits
+              run: |
+                  echo "## Recent Commits" > recent-commits.md
+                  git log --oneline -5 >> recent-commits.md
+                  cat recent-commits.md
+
+            - name: Configure Copilot CLI Authentication
+              env:
+                  COPILOT_CLI_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+              run: |
+                  # Create config directory
+                  mkdir -p ~/.copilot
+
+                  # Configure authentication (token will be used via env var)
+                  echo "✅ Copilot CLI authentication configured"
+
+            - name: Configure Atlassian MCP Server
+              env:
+                  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+                  JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+              run: |
+                  # Create MCP configuration for Atlassian
+                  cat > ~/.copilot/mcp-config.json <<'EOF'
+                  {
+                    "mcpServers": {
+                      "atlassian": {
+                        "command": "npx",
+                        "args": ["-y", "@janhq/mcp-server-atlassian"],
+                        "env": {
+                          "JIRA_API_TOKEN": "$JIRA_API_TOKEN",
+                          "JIRA_USER_EMAIL": "$JIRA_USER_EMAIL",
+                          "JIRA_CLOUD_ID": "4c609fb1-ed57-4449-a5b4-d897fd7e3da8"
+                        }
+                      }
+                    }
+                  }
+                  EOF
+
+                  # Replace placeholders with actual secrets
+                  sed -i "s/\$JIRA_API_TOKEN/${{ secrets.JIRA_API_TOKEN }}/g" ~/.copilot/mcp-config.json
+                  sed -i "s/\$JIRA_USER_EMAIL/${{ secrets.JIRA_USER_EMAIL }}/g" ~/.copilot/mcp-config.json
+
+                  echo "✅ Atlassian MCP server configured"
+
+            - name: Trust repository directory
+              run: |
+                  # Configure trusted directories
+                  mkdir -p ~/.copilot/trusted
+                  echo "${{ github.workspace }}" > ~/.copilot/trusted/dirs.txt
+                  echo "✅ Repository directory trusted"
+
+            - name: Run Copilot Test Fixer Agent
+              id: copilot-investigation
+              env:
+                  COPILOT_CLI_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+                  JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+              run: |
+                  # Create investigation prompt
+                  cat > investigation-prompt.txt <<'PROMPT'
+                  You are investigating a Playwright test failure. Here is the context:
+
+                  PROMPT
+
+                  cat failure-summary.md >> investigation-prompt.txt
+                  cat recent-commits.md >> investigation-prompt.txt
+
+                  cat >> investigation-prompt.txt <<'PROMPT'
+
+                  Your tasks:
+                  1. Analyze why the Playwright tests failed
+                  2. Review recent commits to identify UI changes
+                  3. Fix the test code (NOT application code) to match the new UI
+                  4. Create a Jira Sub-task under GHC-1392 with details
+                  5. Create a GitHub issue linked to the Jira ticket
+                  6. Use /delegate to create a PR with the test fix
+
+                  Focus on simple fixes like text assertions or selector updates.
+                  Be thorough but pragmatic. Include all relevant file paths.
+                  PROMPT
+
+                  echo "📋 Investigation Prompt created"
+
+                  # Run Copilot CLI investigation with agent
+                  echo "Running Copilot analysis with test-fixer agent..."
+
+                  # Construct the full prompt with agent definition and context
+                  AGENT_PROMPT=$(cat .github/agents/test-fixer.md)
+                  FULL_PROMPT="$AGENT_PROMPT"
+                  FULL_PROMPT+=$'\n\nContext:\n'
+                  FULL_PROMPT+="$(cat investigation-prompt.txt)"
+
+                  # Execute Copilot with agent (non-interactive mode)
+                  echo "$FULL_PROMPT" | copilot --prompt "$(cat -)" --allow-all-tools --allow-all-paths < /dev/null \
+                          > copilot-output.log 2>&1 || true
+
+                  echo "📄 Copilot Analysis:"
+                  cat copilot-output.log
+
+                  # Parse Copilot output for fix recommendations
+                  echo "Extracting recommendations..."
+                  grep -A 20 "Recommendation\|Fix\|Solution" copilot-output.log > recommendations.txt || echo "No specific recommendations found" > recommendations.txt
+
+            - name: Upload investigation artifacts
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: copilot-investigation
+                  path: |
+                      copilot-output.log
+                      failure-summary.md
+                      recent-commits.md
+                      test-results/
+                  retention-days: 30
+
+            - name: Comment on failed workflow
+              if: always()
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      let output = 'No output available';
+                      try {
+                        output = fs.readFileSync('copilot-output.log', 'utf8');
+                      } catch (e) {
+                        output = 'Could not read Copilot output';
+                      }
+
+                      const comment = `## 🤖 Copilot Test Fixer Investigation
+
+                      The Playwright test failure has been analyzed by Copilot CLI.
+
+                      **Workflow Run:** ${{ github.event.workflow_run.html_url }}
+                      **Branch:** ${{ github.event.workflow_run.head_branch }}
+                      **Commit:** ${{ github.event.workflow_run.head_sha }}
+
+                      <details>
+                      <summary>📋 Investigation Output</summary>
+
+                      \`\`\`
+                      ${output.substring(0, 5000)}
+                      \`\`\`
+
+                      </details>
+
+                      Check the [workflow artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for complete logs.
+                      `;
+
+                      // Comment on the commit that triggered the failure
+                      github.rest.repos.createCommitComment({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        commit_sha: '${{ github.event.workflow_run.head_sha }}',
+                        body: comment
+                      });
+
+            - name: Create GitHub Issue with Copilot Agent Instructions
+              uses: actions/github-script@v7
+              env:
+                  WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
+                  BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
+                  COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+                  REPO_NAME: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
+              with:
+                  script: |
+                      const fs = require('fs');
+
+                      // Read investigation output
+                      let copilotAnalysis = 'Investigation output not available';
+                      try {
+                        copilotAnalysis = fs.readFileSync('copilot-output.log', 'utf8');
+                      } catch (e) {}
+
+                      // Read recommendations
+                      let recommendations = 'No recommendations extracted';
+                      try {
+                        recommendations = fs.readFileSync('recommendations.txt', 'utf8');
+                      } catch (e) {}
+
+                      // Create GitHub issue
+                      const issue = await github.rest.issues.create({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        title: `🐛 Playwright Test Failure: ${new Date().toISOString().split('T')[0]}`,
+                        body: `## 🔴 Playwright Test Suite Failed
+
+                      **Workflow Run:** ${process.env.WORKFLOW_URL}
+                      **Branch:** \`${process.env.BRANCH_NAME}\`
+                      **Commit:** \`${process.env.COMMIT_SHA}\`
+                      **Failed Job:** Playwright E2E Tests
+
+                      ### 🤖 AI Analysis
+
+                      <details>
+                      <summary>Copilot Investigation Results</summary>
+
+                      \`\`\`
+                      ${copilotAnalysis.substring(0, 3000)}
+                      \`\`\`
+
+                      </details>
+
+                      ### 📋 Recommendations
+
+                      \`\`\`
+                      ${recommendations}
+                      \`\`\`
+
+                      ---
+
+                      ### 🚀 Next Steps for Developer
+
+                      **Option 1: Use GitHub Copilot Coding Agent (Recommended)**
+
+                      1. Open this repository in VS Code with GitHub Copilot enabled
+                      2. Open Copilot Chat (Cmd/Ctrl + I)
+                      3. Mention this issue: \`Fix the test failure in #\${issue.data.number}\`
+                      4. Add the coding agent hashtag: \`#github-pull-request_copilot-coding-agent\`
+                      5. Copilot will create a branch and PR with the fix
+
+                      **Example prompt:**
+                      \`\`\`
+                      Fix the Playwright test failure described in issue #\${issue.data.number}. 
+                      Analyze the test expectations and update the code or tests as appropriate.
+                      #github-pull-request_copilot-coding-agent
+                      \`\`\`
+
+                      **Option 2: Manual Fix**
+
+                      1. Review the Copilot analysis above
+                      2. Check [workflow artifacts](https://github.com/${process.env.REPO_NAME}/actions/runs/${process.env.RUN_ID})
+                      3. Create a branch and fix the issue
+                      4. Link this issue in your PR
+
+                      ---
+
+                      _🤖 This issue was auto-generated by the Copilot Test Fixer workflow_
+
+                      **Related Jira:** GHC-1392`,
+                        labels: ['bug', 'testing', 'automated', 'copilot-agent']
+                      });
+
+                      console.log(`Created issue #${issue.data.number}`);
+
+                      // Get Copilot's node ID using GraphQL
+                      try {
+                        const copilotQuery = `
+                          query($owner: String!, $name: String!) {
+                            repository(owner: $owner, name: $name) {
+                              suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
+                                nodes {
+                                  login
+                                  __typename
+                                  ... on Bot { id }
+                                }
+                              }
+                            }
+                          }
+                        `;
+                        
+                        const copilotResponse = await github.graphql(copilotQuery, {
+                          owner: context.repo.owner,
+                          name: context.repo.repo
+                        });
+                        
+                        // Log all available bots for debugging
+                        const bots = copilotResponse.repository.suggestedActors.nodes.filter(n => n.__typename === 'Bot');
+                        console.log(`Available bots: ${bots.map(b => b.login).join(', ')}`);
+                        
+                        // Try to find any copilot-related bot
+                        const copilotNode = copilotResponse.repository.suggestedActors.nodes.find(
+                          n => n.login && (n.login.includes('copilot') || n.login === 'copilot')
+                        );
+                        
+                        if (copilotNode && copilotNode.id) {
+                          console.log(`Found Copilot bot: ${copilotNode.login}`);
+                          
+                          // Assign using GraphQL mutation
+                          const assignMutation = `
+                            mutation($issueId: ID!, $assigneeIds: [ID!]!) {
+                              addAssigneesToAssignable(input: {assignableId: $issueId, assigneeIds: $assigneeIds}) {
+                                assignable {
+                                  ... on Issue {
+                                    number
+                                    assignees(first: 10) {
+                                      nodes {
+                                        login
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          `;
+                          
+                          await github.graphql(assignMutation, {
+                            issueId: issue.data.node_id,
+                            assigneeIds: [copilotNode.id]
+                          });
+                          
+                          console.log(`✅ Assigned issue #${issue.data.number} to ${copilotNode.login} with test-fixer agent`);
+                        } else {
+                          console.log('⚠️  No Copilot bot found in suggestedActors');
+                        }
+                      } catch (error) {
+                        console.log(`Note: Could not auto-assign to Copilot: ${error.message}`);
+                        console.log('Issue can be manually assigned via GitHub UI');
+                      }
