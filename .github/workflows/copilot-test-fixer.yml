@@ -340,3 +340,69 @@ jobs:
                         console.log(`⚠️ Could not auto-assign to Copilot: ${error.message}`);
                         console.log('Issue can be manually assigned via GitHub UI');
                       }
+            - name: Create JIRA subtask
+              if: success()
+              env:
+                  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+                  JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+              run: |
+                  # Get the GitHub issue number from previous step
+                  ISSUE_NUMBER=$(gh issue list --repo ${{ github.repository }} --label "automated" --limit 1 --json number --jq '.[0].number')
+                  ISSUE_URL="https://github.com/${{ github.repository }}/issues/${ISSUE_NUMBER}"
+                  
+                  echo "Creating JIRA subtask for issue #${ISSUE_NUMBER}..."
+                  
+                  # Create JIRA subtask under GHC-1392
+                  JIRA_RESPONSE=$(curl -X POST \
+                    -H "Content-Type: application/json" \
+                    -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+                    "https://moduscreate.atlassian.net/rest/api/3/issue" \
+                    -d "{
+                      \"fields\": {
+                        \"project\": {\"key\": \"GHC\"},
+                        \"parent\": {\"key\": \"GHC-1392\"},
+                        \"issuetype\": {\"name\": \"Subtask\"},
+                        \"summary\": \"[Automated] Playwright test failure investigation\",
+                        \"description\": {
+                          \"type\": \"doc\",
+                          \"version\": 1,
+                          \"content\": [
+                            {
+                              \"type\": \"paragraph\",
+                              \"content\": [
+                                {\"type\": \"text\", \"text\": \"Automated test failure detected and under investigation by Copilot bot.\\n\\n\"}
+                              ]
+                            },
+                            {
+                              \"type\": \"paragraph\",
+                              \"content\": [
+                                {\"type\": \"text\", \"text\": \"GitHub Issue: \", \"marks\": [{\"type\": \"strong\"}]},
+                                {\"type\": \"text\", \"text\": \"${ISSUE_URL}\", \"marks\": [{\"type\": \"link\", \"attrs\": {\"href\": \"${ISSUE_URL}\"}}]}
+                              ]
+                            },
+                            {
+                              \"type\": \"paragraph\",
+                              \"content\": [
+                                {\"type\": \"text\", \"text\": \"Workflow Run: \", \"marks\": [{\"type\": \"strong\"}]},
+                                {\"type\": \"text\", \"text\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\", \"marks\": [{\"type\": \"link\", \"attrs\": {\"href\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}}]}
+                              ]
+                            },
+                            {
+                              \"type\": \"paragraph\",
+                              \"content\": [
+                                {\"type\": \"text\", \"text\": \"Status: Waiting for Copilot bot to create fix PR\"}
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }")
+                  
+                  JIRA_KEY=$(echo "$JIRA_RESPONSE" | jq -r '.key')
+                  JIRA_URL="https://moduscreate.atlassian.net/browse/${JIRA_KEY}"
+                  
+                  echo "✅ Created JIRA subtask: ${JIRA_KEY}"
+                  echo "🔗 ${JIRA_URL}"
+                  
+                  # Add JIRA link to GitHub issue
+                  gh issue comment ${ISSUE_NUMBER} --repo ${{ github.repository }} --body "📋 **JIRA Ticket Created:** [${JIRA_KEY}](${JIRA_URL})"

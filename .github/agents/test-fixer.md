@@ -64,46 +64,137 @@ await expect(page.getByText('Org')).toBeVisible()
 
 ### 3. Create Jira Sub-task
 
-Use `mcp_atlassian_createJiraIssue` with:
-- **cloudId:** `4c609fb1-ed57-4449-a5b4-d897fd7e3da8`
-- **projectKey:** `GHC`
-- **issueType:** `Sub-task` (not Bug - hierarchy constraint)
-- **parent:** `GHC-1392`
-- **summary:** `[Automated] Playwright test failure: {test-name}`
-- **description:** Include:
-  - Failed test name and file
-  - Root cause (UI change details)
-  - Commit SHA that broke the test
-  - Files changed in the fix
-  - Link to GitHub workflow run
-  - Link to GitHub issue (create after this)
+**CRITICAL:** Create Jira AFTER you have the PR URL so you can include it in the description.
 
-### 4. Create GitHub Issue
+Use the JIRA REST API via gh CLI (preferred) or GitHub Actions:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" | base64)" \
+  "https://moduscreate.atlassian.net/rest/api/3/issue" \
+  -d '{
+    "fields": {
+      "project": {"key": "GHC"},
+      "parent": {"key": "GHC-1392"},
+      "issuetype": {"name": "Subtask"},
+      "summary": "[Automated] Playwright test fix: {brief-description}",
+      "description": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Automated Playwright test fix\n\n"}
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Root Cause: ", "marks": [{"type": "strong"}]},
+              {"type": "text", "text": "{root-cause-description}"}
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Fix PR: ", "marks": [{"type": "strong"}]},
+              {"type": "text", "text": "{PR-URL}", "marks": [{"type": "link", "attrs": {"href": "{PR-URL}"}}]}
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "GitHub Issue: ", "marks": [{"type": "strong"}]},
+              {"type": "text", "text": "{ISSUE-URL}", "marks": [{"type": "link", "attrs": {"href": "{ISSUE-URL}"}}]}
+            ]
+          }
+        ]
+      }
+    }
+  }'
+```
 
-Use GitHub MCP tools or `gh` CLI:
-- **Title:** `[CI] Fix Playwright test after UI change: {test-name}`
+**Include in description:**
+- Root cause (specific UI change, e.g., "Text changed from 'Organisation' to 'Org'")
+- Failed test file path
+- Commit SHA that broke the test
+- Link to fix PR (IMPORTANT!)
+- Link to GitHub issue
+- Files modified in fix
+
+### 4. Workflow Order
+
+**IMPORTANT - Follow this exact sequence:**
+
+1. **Analyze** test failure and determine root cause
+2. **Create fix branch** and implement the test fix
+3. **Create PR** with the fix
+4. **Create GitHub issue** linking to the PR
+5. **Create JIRA subtask** under GHC-1392 with PR and issue links
+6. **Comment on PR** with JIRA ticket number
+
+This order ensures all links are available when creating tickets.
+
+### 5. GitHub Issue Creation
+
+Create after PR so you can link it:
+- **Title:** `🔧 [Automated] Fix Playwright test: {test-name}`
 - **Body:** 
-  - Link to Jira: `GHC-XXXX`
-  - Failed workflow run URL
-  - Test failure details
-  - Proposed fix summary
+  ```markdown
+  ## Automated Test Fix
+  
+  **Root Cause:** {specific-change}
+  
+  **Failed Test:** `{file-path}`
+  
+  **Fix PR:** #{pr-number}
+  
+  **JIRA:** [GHC-XXXX](https://moduscreate.atlassian.net/browse/GHC-XXXX)
+  
+  **Workflow Run:** {workflow-url}
+  
+  ### Changes Made
+  - {description of test updates}
+  
+  _🤖 This issue was automatically created by the test-fixer agent_
+  ```
 - **Labels:** `bug`, `ci-failure`, `playwright`, `automated`
-- **Assignee:** Current committer or default to repository owner
 
-### 5. Create Fix Branch and PR
+### 6. Create Fix Branch and PR
 
-**Use `/delegate` command to hand off to Copilot coding agent:**
-```
-/delegate Fix the Playwright test in {file-path} by updating the assertion from "{old-text}" to "{new-text}" to match the UI change. Run the test to verify the fix.
-```
+**Implement the fix:**
+- Branch name: `fix/playwright-test-{brief-description}`
+- Commit message: `test: fix playwright test after {change-description}`
+- Include all necessary file changes (tests and page objects)
 
-**Or manually create branch:**
-- Branch name: `fix/copilot-test-fix-{test-name}`
-- Commit message: `test: fix playwright test after UI change to "{new-text}"`
-- PR title: `[Automated] Fix Playwright test: {test-name}`
-- PR body: Link to Jira ticket and GitHub issue
+**PR Details:**
+- **Title:** `🔧 [Automated] Fix Playwright test: {test-name}`
+- **Body:**
+  ```markdown
+  ## Test Fix
+  
+  Fixes Playwright test failure caused by: {root-cause}
+  
+  ### Root Cause
+  {detailed-explanation}
+  
+  ### Changes
+  - Updated {file1}: {change1}
+  - Updated {file2}: {change2}
+  
+  ### Testing
+  - [ ] Test passes locally
+  - [ ] No new linting errors
+  - [ ] Follows test patterns from instructions
+  
+  **Related Issue:** Will be created after this PR
+  **JIRA:** Will be created with PR link
+  
+  _🤖 Automated fix by test-fixer agent_
+  ```
 
-### 6. Update Jira with PR Info
+### 7. Update JIRA After PR Created
 
 After PR is created, update the Jira ticket:
 - Add PR link to description or comment
