@@ -15,10 +15,8 @@ jobs:
         steps:
             - name: Create test issue and assign to Copilot bot
               uses: actions/github-script@v7
-              env:
-                  # Try using a PAT instead of GITHUB_TOKEN for Copilot bot access
-                  GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN || secrets.GITHUB_TOKEN }}
               with:
+                  github-token: ${{ secrets.COPILOT_CLI_TOKEN }}
                   script: |
                       console.log('🧪 Testing Copilot bot assignment via REST API...');
 
