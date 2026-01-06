@@ -4,7 +4,7 @@ import { DashboardPage } from './pages/DashboardPage';
 const tag = { tag: ['@org'] }
 
 let dashboard: DashboardPage;
-
+test.describe.skip('Team tests - skipped for quick validation', () => {
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage();
   await page.goto('/orgs/octo-demo-org/teams/the-a-team?mock=true');

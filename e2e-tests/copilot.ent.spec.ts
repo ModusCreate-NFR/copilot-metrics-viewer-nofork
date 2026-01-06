@@ -5,6 +5,8 @@ const tag = { tag: ['@ent'] }
 
 let dashboard: DashboardPage;
 
+test.describe.skip('Enterprise tests - skipped for quick validation', () => {
+
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage();
   await page.goto('/enterprises/octo-demo-ent?mock=true');

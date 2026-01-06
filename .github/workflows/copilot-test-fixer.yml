@@ -349,9 +349,9 @@ jobs:
                   # Get the GitHub issue number from previous step
                   ISSUE_NUMBER=$(gh issue list --repo ${{ github.repository }} --label "automated" --limit 1 --json number --jq '.[0].number')
                   ISSUE_URL="https://github.com/${{ github.repository }}/issues/${ISSUE_NUMBER}"
-                  
+
                   echo "Creating JIRA subtask for issue #${ISSUE_NUMBER}..."
-                  
+
                   # Create JIRA subtask under GHC-1392
                   JIRA_RESPONSE=$(curl -X POST \
                     -H "Content-Type: application/json" \
@@ -397,12 +397,12 @@ jobs:
                         }
                       }
                     }")
-                  
+
                   JIRA_KEY=$(echo "$JIRA_RESPONSE" | jq -r '.key')
                   JIRA_URL="https://moduscreate.atlassian.net/browse/${JIRA_KEY}"
-                  
+
                   echo "✅ Created JIRA subtask: ${JIRA_KEY}"
                   echo "🔗 ${JIRA_URL}"
-                  
+
                   # Add JIRA link to GitHub issue
                   gh issue comment ${ISSUE_NUMBER} --repo ${{ github.repository }} --body "📋 **JIRA Ticket Created:** [${JIRA_KEY}](${JIRA_URL})"
