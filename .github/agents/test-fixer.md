@@ -8,8 +8,8 @@ mcp-servers:
     args: ["-y", "@janhq/mcp-server-atlassian"]
     tools: ["*"]
     env:
-      JIRA_API_TOKEN: JIRA_API_TOKEN
-      JIRA_USER_EMAIL: JIRA_USER_EMAIL
+      JIRA_API_TOKEN: ${{ secrets.COPILOT_MCP_JIRA_API_TOKEN }}
+      JIRA_USER_EMAIL: ${{ secrets.COPILOT_MCP_JIRA_USER_EMAIL }}
       JIRA_URL: https://moduscreate.atlassian.net
 tools:
   - filesystem
