@@ -1,10 +1,21 @@
 ---
 name: test-fixer
 description: Analyzes Playwright test failures and fixes test code to match UI changes
+mcp-servers:
+  atlassian:
+    type: local
+    command: npx
+    args: ["-y", "@janhq/mcp-server-atlassian"]
+    tools: ["*"]
+    env:
+      JIRA_API_TOKEN: JIRA_API_TOKEN
+      JIRA_USER_EMAIL: JIRA_USER_EMAIL
+      JIRA_URL: https://moduscreate.atlassian.net
 tools:
   - filesystem
   - shell
   - github
+  - atlassian/*
 ---
 
 # Playwright Test Fixer Agent
