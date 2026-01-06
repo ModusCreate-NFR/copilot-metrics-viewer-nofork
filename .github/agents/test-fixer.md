@@ -7,7 +7,7 @@ mcp-servers:
     command: npx
     args:
       - -y
-      - "@sooperset/mcp-atlassian"
+      - "@teolin/mcp-atlassian"
     env:
       ATLASSIAN_DOMAIN: COPILOT_MCP_ATLASSIAN_DOMAIN
       ATLASSIAN_EMAIL: COPILOT_MCP_ATLASSIAN_EMAIL
