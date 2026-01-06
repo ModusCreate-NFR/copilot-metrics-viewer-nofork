@@ -91,20 +91,21 @@ jobs:
 
             - name: Configure Atlassian MCP Server
               env:
-                  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-                  JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+                  ATLASSIAN_API_TOKEN: ${{ secrets.COPILOT_MCP_ATLASSIAN_API_TOKEN }}
+                  ATLASSIAN_EMAIL: ${{ secrets.COPILOT_MCP_ATLASSIAN_EMAIL }}
+                  ATLASSIAN_DOMAIN: ${{ secrets.COPILOT_MCP_ATLASSIAN_DOMAIN }}
               run: |
-                  # Create MCP configuration for Atlassian
+                  # Create MCP configuration for Atlassian (using @sooperset/mcp-atlassian)
                   cat > ~/.copilot/mcp-config.json <<'EOF'
                   {
                     "mcpServers": {
                       "atlassian": {
                         "command": "npx",
-                        "args": ["-y", "@janhq/mcp-server-atlassian"],
+                        "args": ["-y", "@sooperset/mcp-atlassian"],
                         "env": {
-                          "JIRA_API_TOKEN": "$JIRA_API_TOKEN",
-                          "JIRA_USER_EMAIL": "$JIRA_USER_EMAIL",
-                          "JIRA_CLOUD_ID": "4c609fb1-ed57-4449-a5b4-d897fd7e3da8"
+                          "ATLASSIAN_DOMAIN": "$ATLASSIAN_DOMAIN",
+                          "ATLASSIAN_EMAIL": "$ATLASSIAN_EMAIL",
+                          "ATLASSIAN_API_TOKEN": "$ATLASSIAN_API_TOKEN"
                         }
                       }
                     }
@@ -112,10 +113,11 @@ jobs:
                   EOF
 
                   # Replace placeholders with actual secrets
-                  sed -i "s/\$JIRA_API_TOKEN/${{ secrets.JIRA_API_TOKEN }}/g" ~/.copilot/mcp-config.json
-                  sed -i "s/\$JIRA_USER_EMAIL/${{ secrets.JIRA_USER_EMAIL }}/g" ~/.copilot/mcp-config.json
+                  sed -i "s/\$ATLASSIAN_DOMAIN/${{ env.ATLASSIAN_DOMAIN }}/g" ~/.copilot/mcp-config.json
+                  sed -i "s/\$ATLASSIAN_EMAIL/${{ env.ATLASSIAN_EMAIL }}/g" ~/.copilot/mcp-config.json
+                  sed -i "s/\$ATLASSIAN_API_TOKEN/${{ env.ATLASSIAN_API_TOKEN }}/g" ~/.copilot/mcp-config.json
 
-                  echo "✅ Atlassian MCP server configured"
+                  echo "✅ Atlassian MCP server configured (@sooperset/mcp-atlassian)"
 
             - name: Trust repository directory
               run: |
