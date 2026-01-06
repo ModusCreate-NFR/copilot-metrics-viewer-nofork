@@ -5,12 +5,13 @@ mcp-servers:
   atlassian:
     type: local
     command: npx
-    args: ["-y", "@janhq/mcp-server-atlassian"]
-    tools: ["*"]
+    args:
+      - -y
+      - "@sooperset/mcp-atlassian"
     env:
-      JIRA_API_TOKEN: ${{ secrets.COPILOT_MCP_JIRA_API_TOKEN }}
-      JIRA_USER_EMAIL: ${{ secrets.COPILOT_MCP_JIRA_USER_EMAIL }}
-      JIRA_URL: https://moduscreate.atlassian.net
+      ATLASSIAN_DOMAIN: COPILOT_MCP_ATLASSIAN_DOMAIN
+      ATLASSIAN_EMAIL: COPILOT_MCP_ATLASSIAN_EMAIL
+      ATLASSIAN_API_TOKEN: COPILOT_MCP_ATLASSIAN_API_TOKEN
 tools:
   - filesystem
   - shell
