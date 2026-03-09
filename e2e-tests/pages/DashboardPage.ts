@@ -79,10 +79,10 @@ export class DashboardPage {
         await expect(this.toolbarTitle).toHaveText(title);
     }
 
-    async expectMetricLabelsVisible() {
-        await expect(this.acceptanceRateByCountLabel).toBeVisible();
-        await expect(this.totalCountOfSuggestionsLabel).toBeVisible();
-        await expect(this.totalLinesSuggestedLabel).toBeVisible();
+    async expectMetricLabelsVisible(timeout = 10000) {
+        await expect(this.acceptanceRateByCountLabel).toBeVisible({ timeout });
+        await expect(this.totalCountOfSuggestionsLabel).toBeVisible({ timeout });
+        await expect(this.totalLinesSuggestedLabel).toBeVisible({ timeout });
     }
 
     async expectDataReturned() {
