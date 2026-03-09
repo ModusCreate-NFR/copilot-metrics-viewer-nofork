@@ -261,9 +261,22 @@ If available:
    - Exit successfully
 
 3. Create new PR:
-   ```bash
-   gh pr create --title "[generated title]" --body "[generated description]"
-   ```
+   - Write the PR body to a temporary file:
+     ```bash
+     cat > /tmp/pr-body-$$.md << 'EOF'
+     [generated description]
+     EOF
+     ```
+   
+   - Create the PR using the body file:
+     ```bash
+     gh pr create --title "[generated title]" --body-file /tmp/pr-body-$$.md
+     ```
+   
+   - Clean up the temporary file:
+     ```bash
+     rm -f /tmp/pr-body-$$.md
+     ```
    
    This will open the PR in the browser automatically for final review.
 
