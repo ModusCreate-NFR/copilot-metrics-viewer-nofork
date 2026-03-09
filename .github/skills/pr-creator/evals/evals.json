@@ -1,0 +1,23 @@
+{
+  "skill_name": "pr-creator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "ok i just finished adding a new date range selector component to the dashboard - i've got 3 commits on my feat/date-range-selector branch and tested it locally. can you create a PR for me? i want to get this reviewed before i leave today",
+      "expected_output": "Should analyze commits, generate a feat: PR title, fill description with component details, check for UI changes (should detect .vue files and remind about screenshots), push branch, and create PR via gh CLI",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "i need to open a PR but i have some uncommitted changes in MainComponent.vue that fixes a bug with the metrics caching. the changes are pretty small - just like 10 lines. should i commit them first or what?",
+      "expected_output": "Should detect uncommitted changes, ask user if they want to commit them, suggest a commit message like 'fix: resolve metrics caching bug', commit if user agrees, then create PR with fix: type",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "hey can you make a pull request from my current branch? i added some playwright tests for the new GitHub stats tab and updated the test instructions doc. my branch is test/github-tab-e2e",
+      "expected_output": "Should categorize as test: (since primarily test files), detect test changes and docs changes, generate comprehensive testing steps in PR description, create PR without screenshot reminder since no UI changes",
+      "files": []
+    }
+  ]
+}
