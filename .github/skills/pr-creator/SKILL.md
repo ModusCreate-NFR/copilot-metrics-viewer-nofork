@@ -261,21 +261,18 @@ If available:
    - Exit successfully
 
 3. Create new PR:
-   - Write the PR body to a temporary file:
-     ```bash
-     cat > /tmp/pr-body-$$.md << 'EOF'
-     [generated description]
-     EOF
-     ```
+   - Write the PR body to a temporary file using the `create_file` tool:
+     - Path: `/tmp/pr-body-skill.md`
+     - Content: The generated PR description
    
    - Create the PR using the body file:
      ```bash
-     gh pr create --title "[generated title]" --body-file /tmp/pr-body-$$.md
+     gh pr create --title "[generated title]" --body-file /tmp/pr-body-skill.md
      ```
    
    - Clean up the temporary file:
      ```bash
-     rm -f /tmp/pr-body-$$.md
+     rm -f /tmp/pr-body-skill.md
      ```
    
    This will open the PR in the browser automatically for final review.
