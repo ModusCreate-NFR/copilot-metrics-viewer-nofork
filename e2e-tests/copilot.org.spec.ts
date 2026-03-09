@@ -20,7 +20,7 @@ test.afterAll(async () => {
 });
 
 test('has title', tag, async () => {
-  await dashboard.expectToHaveTitle(/Copilot Metrics Viewer \| Organization : octo-demo-org/);
+  await dashboard.expectToHaveTitle(/Copilot Metrics Viewer \| Org : octo-demo-org/);
 });
 
 test('organization tab', tag, async () => {
