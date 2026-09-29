@@ -14,6 +14,9 @@ Always reference these instructions first and fallback to search or bash command
 - Revalidate before responding. Think step by step.
 - Never delete files without explicit instructions to do so or confirmation.
 - Make sure you are not on master/main branch before making changes.
+- Never push, merge, or close a PR without explicit confirmation.
+- Never skip, delete, or weaken a failing test to make it pass. Explain the failure instead.
+- Ask before running any command that deletes data, rewrites git history, or touches `.env` files.
 - Use Context7 MCP for best practices or latest API documentation.
 
 ## Working Effectively

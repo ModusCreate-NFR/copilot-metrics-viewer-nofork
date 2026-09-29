@@ -1,22 +1,21 @@
 {
     "servers": {
-        "context7": {
-            "type": "stdio",
-            "command": "npx",
-            "args": [
-                "-y",
-                "@upstash/context7-mcp",
-                "--api-key",
-                "YOUR_API_KEY"
-            ]
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp/"
         },
         "atlassian": {
+            "type": "http",
+            "url": "https://mcp.atlassian.com/v1/mcp"
+        },
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp"
+        },
+        "playwright": {
+            "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "mcp-remote",
-                "https://mcp.atlassian.com/v1/sse"
-            ]
+            "args": ["-y", "@playwright/mcp@latest"]
         }
     }
 }

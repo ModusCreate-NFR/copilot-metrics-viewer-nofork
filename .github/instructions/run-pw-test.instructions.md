@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: 'e2e-tests/**,playwright.config.ts'
 ---
 
 # Running Playwright Tests - Instructions for AI

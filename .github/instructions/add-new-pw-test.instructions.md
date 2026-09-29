@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: 'e2e-tests/**'
 ---
 
 # Playwright Test Creation Instructions
