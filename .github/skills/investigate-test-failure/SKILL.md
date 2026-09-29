@@ -22,6 +22,12 @@ Extract: the failing test names, the assertion, **Expected** vs **Received**, an
 
 ## 2. Find what changed
 
+For a PR, you do not need to check it out:
+```bash
+gh pr view <pr-number> --json commits,author,title       # commits and author
+gh pr diff <pr-number>                                    # what the PR changed
+```
+For the current branch:
 ```bash
 git log --oneline main..HEAD                              # commits on this branch
 git diff main...HEAD --stat                               # files touched
