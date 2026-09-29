@@ -169,7 +169,8 @@ jobs:
                   FULL_PROMPT+="$(cat investigation-prompt.txt)"
 
                   # Execute Copilot with agent (non-interactive mode)
-                  echo "$FULL_PROMPT" | copilot --prompt "$(cat -)" --allow-all-tools --allow-all-paths < /dev/null \
+                  # --prompt=VALUE form: the agent file starts with "---", which the CLI would otherwise parse as a flag
+                  copilot --prompt="$FULL_PROMPT" --allow-all-tools --allow-all-paths < /dev/null \
                           > copilot-output.log 2>&1 || true
 
                   echo "📄 Copilot Analysis:"
