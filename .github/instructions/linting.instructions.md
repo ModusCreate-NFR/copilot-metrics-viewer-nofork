@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: '**/*.ts,**/*.vue,**/*.js,**/*.mjs'
 ---
 
 # Linting Instructions for Copilot Metrics Viewer
