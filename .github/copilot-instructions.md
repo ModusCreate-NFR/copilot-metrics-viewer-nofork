@@ -19,6 +19,37 @@ Always reference these instructions first and fallback to search or bash command
 - Ask before running any command that deletes data, rewrites git history, or touches `.env` files.
 - Use Context7 MCP for best practices or latest API documentation.
 
+## Playwright Test Code Review Guidelines
+
+When reviewing Playwright test code, check for these critical issues:
+
+### Anti-Patterns to Flag
+1. **Duplicate page objects** - Search `e2e-tests/pages/` before creating new ones
+2. **Fragile selectors** - Must use role-based > text-based > CSS (in that order)
+3. **Missing `?mock=true`** - All test URLs must include mock parameter
+4. **TypeScript violations** - No `any` types, must use `type` imports
+5. **Missing cleanup** - Must have `beforeAll`/`afterAll` with `page.close()`
+6. **Unused imports** - Remove all unused imports (causes lint errors)
+7. **Manual assertions** - Use web-first: `await expect().toBeVisible()` not `expect(await .isVisible())`
+8. **Wrong naming** - Methods must follow: `expect*`, `goto*`, `get*`, or action verbs
+
+### Required Standards
+- All page objects use `readonly` locators
+- Methods have configurable timeouts (default 10000ms)
+- Test names are descriptive: "should display X when Y"
+- Proper tags for filtering: `{ tag: ['@org'] }`
+- Follow existing patterns in similar test files
+- Each test must have a funny comment explaining what it does
+
+### Quick Review Commands
+```bash
+grep -r "async expect" e2e-tests/pages/  # Check for existing methods
+grep -r ": any" e2e-tests/              # Find TypeScript violations
+grep -r "mock=true" e2e-tests/           # Verify mock data usage
+```
+
+**Before approving**: Run `npm run lint` and `npx playwright test e2e-tests/new-file.spec.ts`
+
 ## Working Effectively
 
 ### Initial Setup
@@ -163,37 +194,6 @@ Always test these scenarios after making changes (use development mode for relia
 - **Build time**: ~30 seconds
 - **Test execution**: ~15 seconds for full unit test suite
 - **Hot reload**: Very fast in development mode
-
-## Playwright Test Code Review Guidelines
-
-When reviewing Playwright test code, check for these critical issues:
-
-### Anti-Patterns to Flag
-1. **Duplicate page objects** - Search `e2e-tests/pages/` before creating new ones
-2. **Fragile selectors** - Must use role-based > text-based > CSS (in that order)
-3. **Missing `?mock=true`** - All test URLs must include mock parameter
-4. **TypeScript violations** - No `any` types, must use `type` imports
-5. **Missing cleanup** - Must have `beforeAll`/`afterAll` with `page.close()`
-6. **Unused imports** - Remove all unused imports (causes lint errors)
-7. **Manual assertions** - Use web-first: `await expect().toBeVisible()` not `expect(await .isVisible())`
-8. **Wrong naming** - Methods must follow: `expect*`, `goto*`, `get*`, or action verbs
-
-### Required Standards
-- All page objects use `readonly` locators
-- Methods have configurable timeouts (default 10000ms)
-- Test names are descriptive: "should display X when Y"
-- Proper tags for filtering: `{ tag: ['@org'] }`
-- Follow existing patterns in similar test files
-- Each test must have a funny comment explaining what it does
-
-### Quick Review Commands
-```bash
-grep -r "async expect" e2e-tests/pages/  # Check for existing methods
-grep -r ": any" e2e-tests/              # Find TypeScript violations
-grep -r "mock=true" e2e-tests/           # Verify mock data usage
-```
-
-**Before approving**: Run `npm run lint` and `npx playwright test e2e-tests/new-file.spec.ts`
 
 ## Known Limitations
 - **Linting**: 43 existing ESLint errors in codebase (mostly TypeScript any types)
