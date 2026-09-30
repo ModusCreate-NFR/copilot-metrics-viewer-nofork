@@ -7,6 +7,8 @@ _NOTE: For information on support and assistance, click [here](https://github.co
 
 This application displays a set of charts with various metrics related to GitHub Copilot for your <i>GitHub Organization</i> or <i>Enterprise Account</i>. These visualizations are designed to provide clear representations of the data, making it easy to understand and analyze the impact and adoption of GitHub Copilot. This app utilizes the [GitHub Copilot Metrics API](https://docs.github.com/en/enterprise-cloud@latest/rest/copilot/copilot-usage?apiVersion=2022-11-28).
 
+> **Copilot for QA demo:** this repo also shows how QA engineers can use GitHub Copilot (instructions, skills, agents and MCP) for manual testing and Playwright automation. See [docs/copilot-qa-demo.md](docs/copilot-qa-demo.md).
+
 ## Application Overview
 
 The GitHub Copilot Metrics Viewer provides comprehensive analytics through an intuitive dashboard interface:
